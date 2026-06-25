@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { google } from "googleapis";
 
@@ -175,8 +175,10 @@ export async function POST(req: Request) {
     const senderPhone = message.from;
     const customerName = body?.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.profile?.name || "Customer";
 
-    // Launch background execution loop immediately to bypass WhatsApp's 3-second timeout rule
-    processAgentExecution(senderPhone, userText, customerName);
+    // Launch background execution loop safely on Vercel
+    after(async () => {
+        await processAgentExecution(senderPhone, userText, customerName);
+    });
 
     return NextResponse.json({ success: true });
 }
