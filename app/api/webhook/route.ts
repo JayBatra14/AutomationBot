@@ -158,18 +158,23 @@ export async function POST(req: Request) {
 
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-    if (!message || !message.text?.body) {
-        return NextResponse.json({
-            status: "No Message",
-        });
+    if (!message) {
+        return NextResponse.json({ status: "No Message" });
     }
 
-    const userText = message.text.body;
+    let userText = "";
+    if (message.type === "text") {
+        userText = message.text?.body;
+    } else if (message.type === "interactive") {
+        if (message.interactive?.type === "button_reply") {
+            userText = message.interactive.button_reply.title;
+        } else if (message.interactive?.type === "list_reply") {
+            userText = message.interactive.list_reply.title;
+        }
+    }
 
     if (!userText) {
-        return NextResponse.json({
-            status: "No text message",
-        });
+        return NextResponse.json({ status: "No text/interactive message" });
     }
 
     const senderPhone = message.from;
@@ -199,13 +204,30 @@ async function processAgentExecution(phone: string, incomingText: string, name: 
                 Our salon operational hours are 10:00 to 20:00.
                 Available Services: Haircut (100 INR), Facial (200 INR), Shave (70 INR).
                 
-                CRITICAL INSTRUCTIONS:
-                1. If the customer wants to check availability, you MUST call 'getBookedSlots' for that date first.
-                2. If they want to book a Haircut, always call 'evaluateLoyaltyStatus' to check if they earned a freebie (7th free)!
-                3. Once a slot is confirmed clear by you, call 'saveAppointment' to write it down.
-                4. Always respond back to the user in short, friendly sentences (max 3 sentences).`,
-                // Pass all function definitions directly to Gemini as tools
-                tools: [{ functionDeclarations: [getBookedSlotsDeclaration, saveAppointmentDeclaration, evaluateLoyaltyStatusDeclaration] }]
+                CRITICAL INSTRUCTIONS FOR INTERACTION FLOW:
+                1. Always respond in JSON format matching the schema.
+                2. When the user says "Hi" or initiates chat, greet them and use the 'list' type to present the Available Services as options. Use "Services" for listButtonTitle.
+                3. When the user selects a service, use the 'text' type to ask for the date they want to book.
+                4. When the user provides a date, call 'getBookedSlots' to get booked slots. Calculate available slots (1 hour each between 10:00 and 20:00). Then use the 'list' type to present the available slots to the user as options. Use "Time Slots" for listButtonTitle.
+                5. When the user selects a time slot, use the 'buttons' type to ask for final confirmation, providing options like ["Yes, Confirm", "No, Cancel"].
+                6. If the service is a Haircut, call 'evaluateLoyaltyStatus' BEFORE final confirmation to check if they earned a freebie, and mention it in the confirmation text.
+                7. Once the user confirms by selecting "Yes, Confirm", call 'saveAppointment' and then use the 'text' type to show the final success message with their booking details.`,
+                tools: [{ functionDeclarations: [getBookedSlotsDeclaration, saveAppointmentDeclaration, evaluateLoyaltyStatusDeclaration] }],
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        type: { type: Type.STRING, enum: ["text", "list", "buttons"] },
+                        text: { type: Type.STRING, description: "The message text to send to the user. For lists, this is the message asking to choose. For buttons, this is the question." },
+                        listButtonTitle: { type: Type.STRING, description: "The text on the button that opens the list (required if type is 'list', max 20 chars)" },
+                        options: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                            description: "Options for the list (max 10) or buttons (max 3). Required if type is 'list' or 'buttons'."
+                        }
+                    },
+                    required: ["type", "text"]
+                }
             }
         });
 
@@ -244,7 +266,13 @@ async function processAgentExecution(phone: string, incomingText: string, name: 
 
         // Send final text answer compiled by Gemini to the user's phone line
         if (response.text) {
-            await sendWhatsappMessage(phone, response.text);
+            try {
+                const messagePayload = JSON.parse(response.text);
+                await sendWhatsappMessage(phone, messagePayload);
+            } catch (e) {
+                // Fallback if parsing fails
+                await sendWhatsappMessage(phone, { type: "text", text: response.text });
+            }
         }
 
     } catch (error) {
@@ -254,9 +282,56 @@ async function processAgentExecution(phone: string, incomingText: string, name: 
 
 async function sendWhatsappMessage(
     to: string,
-    text: string
+    messagePayload: any
 ) {
-    await fetch(
+    let payload: any = {
+        messaging_product: "whatsapp",
+        to,
+    };
+
+    if (messagePayload.type === "text") {
+        payload.type = "text";
+        payload.text = { body: messagePayload.text };
+    } else if (messagePayload.type === "list") {
+        payload.type = "interactive";
+        payload.interactive = {
+            type: "list",
+            body: { text: messagePayload.text },
+            action: {
+                button: messagePayload.listButtonTitle ? messagePayload.listButtonTitle.substring(0, 20) : "Select",
+                sections: [
+                    {
+                        title: "Options",
+                        rows: (messagePayload.options || []).slice(0, 10).map((opt: string, index: number) => ({
+                            id: `opt_${index}`,
+                            title: opt.substring(0, 24)
+                        }))
+                    }
+                ]
+            }
+        };
+    } else if (messagePayload.type === "buttons") {
+        payload.type = "interactive";
+        payload.interactive = {
+            type: "button",
+            body: { text: messagePayload.text },
+            action: {
+                buttons: (messagePayload.options || []).slice(0, 3).map((opt: string, index: number) => ({
+                    type: "reply",
+                    reply: {
+                        id: `btn_${index}`,
+                        title: opt.substring(0, 20)
+                    }
+                }))
+            }
+        };
+    } else {
+        // Fallback
+        payload.type = "text";
+        payload.text = { body: typeof messagePayload === "string" ? messagePayload : JSON.stringify(messagePayload) };
+    }
+
+    const response = await fetch(
         `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`,
         {
             method: "POST",
@@ -264,14 +339,13 @@ async function sendWhatsappMessage(
                 Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-                messaging_product: "whatsapp",
-                to,
-                type: "text",
-                text: {
-                    body: text,
-                },
-            }),
+            body: JSON.stringify(payload),
         }
     );
+
+    if (!response.ok) {
+        const result = await response.json();
+        console.error("WhatsApp API Error:", result);
+    }
 }
+
