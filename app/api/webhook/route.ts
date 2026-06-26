@@ -142,17 +142,17 @@ async function sendServicesMenu(to: string, name: string) {
                             {
                                 id: "srv_haircut",
                                 title: "Classic Haircut",
-                                description: "✂️ Style, wash & hot towel finish — 300 INR"
+                                description: "✂️ Style, wash & hot towel finish — 100 INR"
                             },
                             {
                                 id: "srv_facial",
                                 title: "Premium Facial",
-                                description: "💆‍♂️ Deep skin detox & hydration massage — 800 INR"
+                                description: "💆‍♂️ Deep skin detox & hydration massage — 200 INR"
                             },
                             {
                                 id: "srv_shave",
                                 title: "Royal Beard Shave",
-                                description: "🪒 Straight-razor precision shave — 150 INR"
+                                description: "🪒 Straight-razor precision shave — 70 INR"
                             }
                         ]
                     }]
