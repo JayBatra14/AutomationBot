@@ -103,11 +103,11 @@ async function sendWhatsappText(to: string, text: string) {
 
 async function sendServicesMenu(to: string, name: string) {
     // Hosted salon banner image URL
-    const bannerImageUrl = "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80";
+    const bannerImageUrl = "https://i.imgur.com/vXYs8w7.png";
 
     try {
         // STAGE 1: Send the eye-catching image banner as its own message
-        await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+        const imageResponse = await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
@@ -123,6 +123,12 @@ async function sendServicesMenu(to: string, name: string) {
                 }
             }),
         });
+
+        // Capture the exact reasons why Meta might drop the image request
+        if (!imageResponse.ok) {
+            const imgErrorData = await imageResponse.json();
+            console.error("❌ Meta API Stage 1 (Image) Error Details:", JSON.stringify(imgErrorData, null, 2));
+        }
 
         // STAGE 2: Deliver the actual Interactive Option Selection Menu right after
         const response = await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
