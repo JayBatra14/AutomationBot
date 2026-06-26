@@ -102,10 +102,10 @@ async function sendWhatsappText(to: string, text: string) {
 }
 
 async function sendServicesMenu(to: string, name: string) {
-    // Replace this with your actual hosted salon banner image URL (PNG or JPEG)
+    // Hosted salon banner image URL
     const bannerImageUrl = "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80";
 
-    await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+    const response = await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
@@ -117,42 +117,40 @@ async function sendServicesMenu(to: string, name: string) {
             type: "interactive",
             interactive: {
                 type: "list",
-                // 1. ADDING AN IMAGE HEADER (Just like enterprise brands do)
                 header: {
                     type: "image",
                     image: {
                         url: bannerImageUrl
                     }
                 },
-                // 2. COOL TEXT FORMATTING IN BODY USING EMOHIS & NATIVE BOLDING
                 body: {
                     text: `✨ *Welcome to Batra's Salon Store* ✨\n\n` +
                         `Hello *${name}*, let's get you pampered! 🌟\n\n` +
                         `Please tap the button below to browse our signature premium services and select what you need today.`
                 },
-                // 3. CLEAN SUB-FOOTER
                 footer: {
-                    text: "⏱️ Takes less than 2 minutes to lock your spot"
+                    text: "⏱️ Takes less than 2 minutes"
                 },
                 action: {
-                    button: "💇‍♂️ Select Service",
+                    // FIX: Kept under 20 characters and removed complex emoji bytes
+                    button: "Select Service",
                     sections: [{
                         title: "💈 POPULAR SERVICES",
                         rows: [
                             {
                                 id: "srv_haircut",
                                 title: "Classic Haircut",
-                                description: "✂️ Style, wash & hot towel finish — 100 INR"
+                                description: "✂️ Style, wash & towel finish — 300 INR"
                             },
                             {
                                 id: "srv_facial",
                                 title: "Premium Facial",
-                                description: "💆‍♂️ Deep skin detox & hydration massage — 200 INR"
+                                description: "💆‍♂️ Deep skin detox massage — 800 INR"
                             },
                             {
                                 id: "srv_shave",
                                 title: "Royal Beard Shave",
-                                description: "🪒 Straight-razor precision shave — 70 INR"
+                                description: "🪒 Straight-razor shave — 150 INR"
                             }
                         ]
                     }]
@@ -160,6 +158,12 @@ async function sendServicesMenu(to: string, name: string) {
             }
         }),
     });
+
+    // New safety logging to catch API errors immediately in your console
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error("❌ Meta API Error Details:", JSON.stringify(errorData, null, 2));
+    }
 }
 
 async function sendAvailableSlotsMenu(to: string, targetDate: string, availableSlots: string[]) {
