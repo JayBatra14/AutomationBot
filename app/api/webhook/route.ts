@@ -185,6 +185,28 @@ async function sendConfirmationButtons(to: string, service: string, date: string
     });
 }
 
+// 1. THE HANDSHAKE (Meta checks if your server is alive and matches the secret token)
+export async function GET(req: NextRequest) {
+    const searchParams = req.nextUrl.searchParams;
+
+    const mode = searchParams.get("hub.mode");
+    const token = searchParams.get("hub.verify_token");
+    const challenge = searchParams.get("hub.challenge");
+
+    if (
+        mode === "subscribe" &&
+        token === process.env.VERIFY_TOKEN
+    ) {
+        console.log("WEBHOOK_VERIFIED successfully");
+        return new NextResponse(challenge, { status: 200 });
+    }
+
+    return NextResponse.json(
+        { error: "Verification failed" },
+        { status: 403 }
+    );
+}
+
 // ====================================================================
 // 📥 WEBHOOK INBOUND TRAFFIC HANDLER
 // ====================================================================
