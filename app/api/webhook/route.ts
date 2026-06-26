@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { google } from "googleapis";
 
 async function getSheetsClient() {
@@ -102,26 +102,58 @@ async function sendWhatsappText(to: string, text: string) {
 }
 
 async function sendServicesMenu(to: string, name: string) {
+    // Replace this with your actual hosted salon banner image URL (PNG or JPEG)
+    const bannerImageUrl = "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80";
+
     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
+        headers: {
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            "Content-Type": "application/json"
+        },
         body: JSON.stringify({
             messaging_product: "whatsapp",
             to,
             type: "interactive",
             interactive: {
                 type: "list",
-                header: { type: "text", text: "Batra's Salon Menu" },
-                body: { text: `Hi ${name}! Please select a service from the list below to start booking your appointment.` },
-                footer: { text: "Tap to view list" },
+                // 1. ADDING AN IMAGE HEADER (Just like enterprise brands do)
+                header: {
+                    type: "image",
+                    image: {
+                        url: bannerImageUrl
+                    }
+                },
+                // 2. COOL TEXT FORMATTING IN BODY USING EMOHIS & NATIVE BOLDING
+                body: {
+                    text: `✨ *Welcome to Batra's Salon Store* ✨\n\n` +
+                        `Hello *${name}*, let's get you pampered! 🌟\n\n` +
+                        `Please tap the button below to browse our signature premium services and select what you need today.`
+                },
+                // 3. CLEAN SUB-FOOTER
+                footer: {
+                    text: "⏱️ Takes less than 2 minutes to lock your spot"
+                },
                 action: {
-                    button: "View Services",
+                    button: "💇‍♂️ Select Service",
                     sections: [{
-                        title: "Our Services",
+                        title: "💈 POPULAR SERVICES",
                         rows: [
-                            { id: "srv_haircut", title: "Haircut", description: "Standard cut & styling - 300 INR" },
-                            { id: "srv_facial", title: "Facial", description: "Premium skin rejuvenation - 800 INR" },
-                            { id: "srv_shave", title: "Shave", description: "Classic hot towel shave - 150 INR" }
+                            {
+                                id: "srv_haircut",
+                                title: "Classic Haircut",
+                                description: "✂️ Style, wash & hot towel finish — 300 INR"
+                            },
+                            {
+                                id: "srv_facial",
+                                title: "Premium Facial",
+                                description: "💆‍♂️ Deep skin detox & hydration massage — 800 INR"
+                            },
+                            {
+                                id: "srv_shave",
+                                title: "Royal Beard Shave",
+                                description: "🪒 Straight-razor precision shave — 150 INR"
+                            }
                         ]
                     }]
                 }
@@ -233,7 +265,9 @@ export async function POST(req: Request) {
     }
 
     if (userResponseText) {
-        handleStateFlow(senderPhone, userResponseText, customerName);
+        after(async () => {
+            await handleStateFlow(senderPhone, userResponseText, customerName);
+        });
     }
 
     return NextResponse.json({ success: true });
