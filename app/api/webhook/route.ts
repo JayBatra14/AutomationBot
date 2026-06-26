@@ -266,10 +266,17 @@ async function processAgentExecution(phone: string, incomingText: string, name: 
 
         // Send final text answer compiled by Gemini to the user's phone line
         if (response.text) {
+            console.log("Gemini Response Text:", response.text);
             try {
-                const messagePayload = JSON.parse(response.text);
+                // Remove potential markdown backticks from Gemini's JSON output
+                let jsonStr = response.text.trim();
+                if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/^```(json)?\n?/i, '').replace(/\n?```$/i, '');
+                }
+                const messagePayload = JSON.parse(jsonStr);
                 await sendWhatsappMessage(phone, messagePayload);
             } catch (e) {
+                console.error("JSON Parsing Error:", e, "Raw Text:", response.text);
                 // Fallback if parsing fails
                 await sendWhatsappMessage(phone, { type: "text", text: response.text });
             }
@@ -288,6 +295,14 @@ async function sendWhatsappMessage(
         messaging_product: "whatsapp",
         to,
     };
+
+    // Safety fallback: if it's an interactive type but options are empty, WhatsApp API will crash. Fallback to text.
+    if (messagePayload.type === "list" && (!messagePayload.options || messagePayload.options.length === 0)) {
+        messagePayload.type = "text";
+    }
+    if (messagePayload.type === "buttons" && (!messagePayload.options || messagePayload.options.length === 0)) {
+        messagePayload.type = "text";
+    }
 
     if (messagePayload.type === "text") {
         payload.type = "text";
