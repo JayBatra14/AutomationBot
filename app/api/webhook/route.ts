@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 
 async function getSheetsClient() {
@@ -265,9 +265,7 @@ export async function POST(req: Request) {
     }
 
     if (userResponseText) {
-        after(async () => {
-            await handleStateFlow(senderPhone, userResponseText, customerName);
-        });
+        handleStateFlow(senderPhone, userResponseText, customerName);
     }
 
     return NextResponse.json({ success: true });
