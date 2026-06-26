@@ -105,64 +105,83 @@ async function sendServicesMenu(to: string, name: string) {
     // Hosted salon banner image URL
     const bannerImageUrl = "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80";
 
-    const response = await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to,
-            type: "interactive",
-            interactive: {
-                type: "list",
-                header: {
-                    type: "image",
-                    image: {
-                        link: bannerImageUrl
-                    }
-                },
-                body: {
-                    text: `✨ *Welcome to Batra's Salon Store* ✨\n\n` +
-                        `Hello *${name}*, let's get you pampered! 🌟\n\n` +
-                        `Please tap the button below to browse our signature premium services and select what you need today.`
-                },
-                footer: {
-                    text: "⏱️ Takes less than 2 minutes"
-                },
-                action: {
-                    // FIX: Kept under 20 characters and removed complex emoji bytes
-                    button: "Select Service",
-                    sections: [{
-                        title: "💈 POPULAR SERVICES",
-                        rows: [
-                            {
-                                id: "srv_haircut",
-                                title: "Classic Haircut",
-                                description: "✂️ Style, wash & towel finish — 300 INR"
-                            },
-                            {
-                                id: "srv_facial",
-                                title: "Premium Facial",
-                                description: "💆‍♂️ Deep skin detox massage — 800 INR"
-                            },
-                            {
-                                id: "srv_shave",
-                                title: "Royal Beard Shave",
-                                description: "🪒 Straight-razor shave — 150 INR"
-                            }
-                        ]
-                    }]
+    try {
+        // STAGE 1: Send the eye-catching image banner as its own message
+        await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                messaging_product: "whatsapp",
+                to,
+                type: "image",
+                image: {
+                    link: bannerImageUrl,
+                    caption: "✨ *Welcome to Kainchi Salon Store* ✨"
                 }
-            }
-        }),
-    });
+            }),
+        });
 
-    // New safety logging to catch API errors immediately in your console
-    if (!response.ok) {
-        const errorData = await response.json();
-        console.error("❌ Meta API Error Details:", JSON.stringify(errorData, null, 2));
+        // STAGE 2: Deliver the actual Interactive Option Selection Menu right after
+        const response = await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                messaging_product: "whatsapp",
+                to,
+                type: "interactive",
+                interactive: {
+                    type: "list",
+                    header: {
+                        type: "text",
+                        text: "PREMIUM SERVICES"
+                    },
+                    body: {
+                        text: `Hello *${name}*, let's get you pampered! 🌟\n\nPlease tap the button below to browse our signature services and pick what you need today.`
+                    },
+                    footer: {
+                        text: "⏱️ Takes less than 2 minutes"
+                    },
+                    action: {
+                        // FIX: Kept under 20 characters and removed complex emoji bytes
+                        button: "Select Service",
+                        sections: [{
+                            title: "💈 POPULAR SERVICES",
+                            rows: [
+                                {
+                                    id: "srv_haircut",
+                                    title: "Classic Haircut",
+                                    description: "✂️ Style, wash & towel finish — 300 INR"
+                                },
+                                {
+                                    id: "srv_facial",
+                                    title: "Premium Facial",
+                                    description: "💆‍♂️ Deep skin detox massage — 800 INR"
+                                },
+                                {
+                                    id: "srv_shave",
+                                    title: "Royal Beard Shave",
+                                    description: "🪒 Straight-razor shave — 150 INR"
+                                }
+                            ]
+                        }]
+                    }
+                }
+            }),
+        });
+
+        // New safety logging to catch API errors immediately in your console
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error("❌ Meta API Error Details:", JSON.stringify(errorData, null, 2));
+        }
+    } catch (err) {
+        console.error("Failed to run sendServicesMenu sequence: ", err);
     }
 }
 
