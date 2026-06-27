@@ -165,21 +165,14 @@ async function sendServicesMenu(to: string, name: string) {
                         sections: [{
                             title: "💈 POPULAR SERVICES",
                             rows: [
-                                {
-                                    id: "srv_haircut",
-                                    title: "Classic Haircut",
-                                    description: "✂️ Style, wash & towel finish — 300 INR"
-                                },
-                                {
-                                    id: "srv_facial",
-                                    title: "Premium Facial",
-                                    description: "💆‍♂️ Deep skin detox massage — 800 INR"
-                                },
-                                {
-                                    id: "srv_shave",
-                                    title: "Royal Beard Shave",
-                                    description: "🪒 Straight-razor shave — 150 INR"
-                                }
+                                { id: "srv_haircut", title: "Haircut", description: "✂️ Professional style, wash & towel finish" },
+                                { id: "srv_hair_spa", title: "Hair Spa", description: "💆‍♀️ Deep conditioning & nourishing therapy" },
+                                { id: "srv_straightening", title: "Hair Straightening", description: "✨ Ultra-sleek, smooth & frizz-free permanent shine" },
+                                { id: "srv_oiling_massage", title: "Hair Oiling & Massage", description: "🌿 Relaxing hot oil scalp massage" },
+                                { id: "srv_body_spa", title: "Premium Body Spa", description: "🧘‍♂️ Full body rejuvenation & stress relief" },
+                                { id: "srv_bleaching", title: "Bleaching", description: "🌟 Safe skin brightening & glow treatment" },
+                                { id: "srv_facial", title: "Facial", description: "🌸 Deep skin detox & hydration care" },
+                                { id: "srv_waxing", title: "Waxing", description: "🍯 Smooth, premium skin hair removal" }
                             ]
                         }]
                     }
@@ -253,28 +246,6 @@ async function sendAvailableSlotsMenu(to: string, targetDate: string, availableS
         }),
     });
 }
-
-// async function sendConfirmationButtons(to: string, service: string, date: string, time: string) {
-//     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-//         method: "POST",
-//         headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
-//         body: JSON.stringify({
-//             messaging_product: "whatsapp",
-//             to,
-//             type: "interactive",
-//             interactive: {
-//                 type: "button",
-//                 body: { text: `Please confirm your details:\n\n💇‍♂️ *Service:* ${service}\n📅 *Date:* ${date}\n⏰ *Time:* ${time}\n\nWould you like to finalize this reservation request?` },
-//                 action: {
-//                     buttons: [
-//                         { type: "reply", reply: { id: "btn_confirm", title: "Yes, Confirm" } },
-//                         { type: "reply", reply: { id: "btn_cancel", title: "No, Cancel" } }
-//                     ]
-//                 }
-//             }
-//         }),
-//     });
-// }
 
 async function sendConfirmationButtons(to: string, service: string, date: string, time: string) {
     // Dynamically match pricing for the review card display
@@ -389,8 +360,8 @@ async function handleStateFlow(phone: string, userInput: string, name: string) {
             const datePromptText =
                 `📅 *SELECT YOUR DATE* \n\n` +
                 `Please enter your preferred appointment date below.\n\n` +
-                `👉 *Format:* \`YYYY-MM-DD\`\n` +
-                `💡 *Example:* \`2026-07-15\`\n\n` +
+                `👉 *Format:* YYYY-MM-DD\n` +
+                `💡 *Example:* 2026-07-15\n\n` +
                 `_Once you send the date, we'll instantly look up our live available master-stylist slots for you!_`;
 
             await sendWhatsappText(phone, datePromptText);
@@ -432,7 +403,7 @@ async function handleStateFlow(phone: string, userInput: string, name: string) {
                 // 2. Build a high-end, structured digital receipt message layout
                 const premiumSuccessMessage =
                     `🎉 *APPOINTMENT SECURED!* 🎉\n\n` +
-                    `Thank you *${name}*! Your booking at *Batra's Salon Store* has been officially confirmed and registered in our system. 👑\n\n` +
+                    `Thank you *${name}*! Your booking at *Kainchi Salon Store* has been officially confirmed and registered in our system. 👑\n\n` +
                     `┌──────────────────────────────┐\n` +
                     `│      *RESERVATION RECEIPT*   \n` +
                     `├──────────────────────────────┤\n` +
