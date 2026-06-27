@@ -124,8 +124,10 @@ async function sendServicesMenu(to: string, name: string) {
             }),
         });
 
-        // Capture the exact reasons why Meta might drop the image request
-        if (!imageResponse.ok) {
+        // FIX: Force the code to wait for Meta to reply and finish processing the image payload completely
+        if (imageResponse.ok) {
+            await imageResponse.json();
+        } else {
             const imgErrorData = await imageResponse.json();
             console.error("❌ Meta API Stage 1 (Image) Error Details:", JSON.stringify(imgErrorData, null, 2));
         }
@@ -191,7 +193,18 @@ async function sendServicesMenu(to: string, name: string) {
     }
 }
 
-// async function sendServicesMenu(to: string, name: string) {
+// async function sendAvailableSlotsMenu(to: string, targetDate: string, availableSlots: string[]) {
+//     if (availableSlots.length === 0) {
+//         await sendWhatsappText(to, "Sorry, all slots are booked for this date. Please enter another date (YYYY-MM-DD):");
+//         return;
+//     }
+
+//     const rows = availableSlots.map(slot => ({
+//         id: `slot_${slot}`,
+//         title: slot,
+//         description: "Available for booking"
+//     }));
+
 //     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
 //         method: "POST",
 //         headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
@@ -201,19 +214,12 @@ async function sendServicesMenu(to: string, name: string) {
 //             type: "interactive",
 //             interactive: {
 //                 type: "list",
-//                 header: { type: "text", text: "Batra's Salon Menu" },
-//                 body: { text: `Hi ${name}! Please select a service from the list below to start booking your appointment.` },
-//                 footer: { text: "Tap to view list" },
+//                 header: { type: "text", text: "Available Timings" },
+//                 body: { text: `Here are the open slots for ${targetDate}. Tap below to choose your time.` },
+//                 footer: { text: "Select a timing slot" },
 //                 action: {
-//                     button: "View Services",
-//                     sections: [{
-//                         title: "Our Services",
-//                         rows: [
-//                             { id: "srv_haircut", title: "Haircut", description: "Standard cut & styling - 300 INR" },
-//                             { id: "srv_facial", title: "Facial", description: "Premium skin rejuvenation - 800 INR" },
-//                             { id: "srv_shave", title: "Shave", description: "Classic hot towel shave - 150 INR" }
-//                         ]
-//                     }]
+//                     button: "Choose Time",
+//                     sections: [{ title: "Timings", rows: rows.slice(0, 10) }] // Max 10 rows per interactive list
 //                 }
 //             }
 //         }),
@@ -222,31 +228,55 @@ async function sendServicesMenu(to: string, name: string) {
 
 async function sendAvailableSlotsMenu(to: string, targetDate: string, availableSlots: string[]) {
     if (availableSlots.length === 0) {
-        await sendWhatsappText(to, "Sorry, all slots are booked for this date. Please enter another date (YYYY-MM-DD):");
+        await sendWhatsappText(to, "⚠️ *Fully Booked!* \n\nAll slots are taken for this day. Please try entering a different date format (`YYYY-MM-DD`):");
         return;
     }
 
-    const rows = availableSlots.map(slot => ({
-        id: `slot_${slot}`,
-        title: slot,
-        description: "Available for booking"
-    }));
+    // Map time slots into a premium-looking action row
+    const rows = availableSlots.map(slot => {
+        // Formats time look: e.g. "14:00" -> "🕒 14:00"
+        return {
+            id: `slot_${slot}`,
+            title: `${slot}`,
+            description: "⚡ Click to lock this session timing"
+        };
+    });
+
+    // Parse friendly date presentation for the header (e.g. 2026-07-15)
+    const formattedHeaderDate = targetDate;
 
     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
+        headers: {
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            "Content-Type": "application/json"
+        },
         body: JSON.stringify({
             messaging_product: "whatsapp",
             to,
             type: "interactive",
             interactive: {
                 type: "list",
-                header: { type: "text", text: "Available Timings" },
-                body: { text: `Here are the open slots for ${targetDate}. Tap below to choose your time.` },
-                footer: { text: "Select a timing slot" },
+                // 1. STYLED BOLD TEXT HEADER
+                header: {
+                    type: "text",
+                    text: `📆 TIMINGS FOR ${formattedHeaderDate}`
+                },
+                // 2. CLEAR STEP INSTRUCTIONS WITH CLEAN EMICONS
+                body: {
+                    text: `✂️ *Open Sessions Found!*\n\n` +
+                        `We found open reservation slots for your visit on *${formattedHeaderDate}*.\n\n` +
+                        `Please tap the button below to pick your exact preferred arrival hour.`
+                },
+                footer: {
+                    text: "🔒 Slots are dynamic and held for 10 mins"
+                },
                 action: {
-                    button: "Choose Time",
-                    sections: [{ title: "Timings", rows: rows.slice(0, 10) }] // Max 10 rows per interactive list
+                    button: "🕒 Select a Slot",
+                    sections: [{
+                        title: "AVAILABLE TIME SLOTS",
+                        rows: rows.slice(0, 10) // Meta Interactive list max cap limit safety check
+                    }]
                 }
             }
         }),
@@ -345,10 +375,18 @@ async function handleStateFlow(phone: string, userInput: string, name: string) {
             return;
         }
 
-        // STEP 1: SERVICE SELECTION
+        // STEP 1 COMPLETE -> TRIGGER DATE PROMPT WITH PREMIUM TYPOGRAPHY
         if (currentState === "AWAITING_SERVICE" && userInput.startsWith("srv_")) {
             const serviceChosen = userInput.replace("srv_", "").toUpperCase(); // HAIRCUT, FACIAL, SHAVE
-            await sendWhatsappText(phone, `Great choice! Please enter your preferred date in YYYY-MM-DD format (Example: 2026-07-15):`);
+
+            const datePromptText =
+                `📅 *SELECT YOUR DATE* \n\n` +
+                `Please enter your preferred appointment date below.\n\n` +
+                `👉 *Format:* \`YYYY-MM-DD\`\n` +
+                `💡 *Example:* \`2026-07-15\`\n\n` +
+                `_Once you send the date, we'll instantly look up our live available master-stylist slots for you!_`;
+
+            await sendWhatsappText(phone, datePromptText);
             await updateCustomerState(phone, `AWAITING_DATE|${serviceChosen}`);
         }
 
