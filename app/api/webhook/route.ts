@@ -101,9 +101,12 @@ async function sendWhatsappText(to: string, text: string) {
     });
 }
 
+// Helper utility to pause execution thread for explicit millisecond counts
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function sendServicesMenu(to: string, name: string) {
     // Hosted salon banner image URL
-    const bannerImageUrl = "https://i.imgur.com/vXYs8w7.png";
+    const bannerImageUrl = "https://i.imgur.com/LhXm44B.jpeg";
 
     try {
         // STAGE 1: Send the eye-catching image banner as its own message
@@ -127,6 +130,7 @@ async function sendServicesMenu(to: string, name: string) {
         // FIX: Force the code to wait for Meta to reply and finish processing the image payload completely
         if (imageResponse.ok) {
             await imageResponse.json();
+            await sleep(1500);
         } else {
             const imgErrorData = await imageResponse.json();
             console.error("❌ Meta API Stage 1 (Image) Error Details:", JSON.stringify(imgErrorData, null, 2));
@@ -147,7 +151,7 @@ async function sendServicesMenu(to: string, name: string) {
                     type: "list",
                     header: {
                         type: "text",
-                        text: "PREMIUM SERVICES"
+                        text: "💇‍♂️ PREMIUM SERVICES"
                     },
                     body: {
                         text: `Hello *${name}*, let's get you pampered! 🌟\n\nPlease tap the button below to browse our signature services and pick what you need today.`
@@ -192,39 +196,6 @@ async function sendServicesMenu(to: string, name: string) {
         console.error("Failed to run sendServicesMenu sequence: ", err);
     }
 }
-
-// async function sendAvailableSlotsMenu(to: string, targetDate: string, availableSlots: string[]) {
-//     if (availableSlots.length === 0) {
-//         await sendWhatsappText(to, "Sorry, all slots are booked for this date. Please enter another date (YYYY-MM-DD):");
-//         return;
-//     }
-
-//     const rows = availableSlots.map(slot => ({
-//         id: `slot_${slot}`,
-//         title: slot,
-//         description: "Available for booking"
-//     }));
-
-//     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-//         method: "POST",
-//         headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
-//         body: JSON.stringify({
-//             messaging_product: "whatsapp",
-//             to,
-//             type: "interactive",
-//             interactive: {
-//                 type: "list",
-//                 header: { type: "text", text: "Available Timings" },
-//                 body: { text: `Here are the open slots for ${targetDate}. Tap below to choose your time.` },
-//                 footer: { text: "Select a timing slot" },
-//                 action: {
-//                     button: "Choose Time",
-//                     sections: [{ title: "Timings", rows: rows.slice(0, 10) }] // Max 10 rows per interactive list
-//                 }
-//             }
-//         }),
-//     });
-// }
 
 async function sendAvailableSlotsMenu(to: string, targetDate: string, availableSlots: string[]) {
     if (availableSlots.length === 0) {
@@ -283,7 +254,34 @@ async function sendAvailableSlotsMenu(to: string, targetDate: string, availableS
     });
 }
 
+// async function sendConfirmationButtons(to: string, service: string, date: string, time: string) {
+//     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+//         method: "POST",
+//         headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
+//         body: JSON.stringify({
+//             messaging_product: "whatsapp",
+//             to,
+//             type: "interactive",
+//             interactive: {
+//                 type: "button",
+//                 body: { text: `Please confirm your details:\n\n💇‍♂️ *Service:* ${service}\n📅 *Date:* ${date}\n⏰ *Time:* ${time}\n\nWould you like to finalize this reservation request?` },
+//                 action: {
+//                     buttons: [
+//                         { type: "reply", reply: { id: "btn_confirm", title: "Yes, Confirm" } },
+//                         { type: "reply", reply: { id: "btn_cancel", title: "No, Cancel" } }
+//                     ]
+//                 }
+//             }
+//         }),
+//     });
+// }
+
 async function sendConfirmationButtons(to: string, service: string, date: string, time: string) {
+    // Dynamically match pricing for the review card display
+    let price = "150 INR";
+    if (service.toLowerCase() === "haircut") price = "300 INR";
+    if (service.toLowerCase() === "facial") price = "800 INR";
+
     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
         method: "POST",
         headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
@@ -293,11 +291,20 @@ async function sendConfirmationButtons(to: string, service: string, date: string
             type: "interactive",
             interactive: {
                 type: "button",
-                body: { text: `Please confirm your details:\n\n💇‍♂️ *Service:* ${service}\n📅 *Date:* ${date}\n⏰ *Time:* ${time}\n\nWould you like to finalize this reservation request?` },
+                // UPGRADED: Structured review layout profile card using native WhatsApp typography
+                body: {
+                    text: `💳 *REVIEW YOUR BOOKING*\n\n` +
+                        `You're almost done! Please double-check your appointment breakdown below:\n\n` +
+                        `💇‍♂️ *Service:* ${service.charAt(0) + service.slice(1).toLowerCase()}\n` +
+                        `📅 *Date:* ${date}\n` +
+                        `⏰ *Time:* ${time} HRS\n` +
+                        `💵 *Estimated Price:* ${price}\n\n` +
+                        `🚨 _Tap *Yes, Confirm* below to write this into our sheet and lock your seat!_`
+                },
                 action: {
                     buttons: [
                         { type: "reply", reply: { id: "btn_confirm", title: "Yes, Confirm" } },
-                        { type: "reply", reply: { id: "btn_cancel", title: "No, Cancel" } }
+                        { type: "reply", reply: { id: "btn_cancel", title: "No, Restart" } }
                     ]
                 }
             }
@@ -392,7 +399,7 @@ async function handleStateFlow(phone: string, userInput: string, name: string) {
 
         // STEP 2: DATE PICKER & SLOT EXTRACTION
         else if (currentState.startsWith("AWAITING_DATE")) {
-            const selectedService = currentState.split("|");
+            const [_, selectedService] = currentState.split("|");
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
             if (dateRegex.test(userInput)) {
@@ -400,7 +407,7 @@ async function handleStateFlow(phone: string, userInput: string, name: string) {
                 await sendAvailableSlotsMenu(phone, userInput, availableSlots);
                 await updateCustomerState(phone, `AWAITING_TIME|${selectedService}|${userInput}`);
             } else {
-                await sendWhatsappText(phone, "Invalid date format. Please send the date exactly like this: YYYY-MM-DD");
+                await sendWhatsappText(phone, "❌ *Invalid Date Format.* Please send the date exactly like this: `YYYY-MM-DD` (e.g., `2026-07-20`)");
             }
         }
 
