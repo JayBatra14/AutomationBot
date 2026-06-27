@@ -399,7 +399,8 @@ async function handleStateFlow(phone: string, userInput: string, name: string) {
 
         // STEP 2: DATE PICKER & SLOT EXTRACTION
         else if (currentState.startsWith("AWAITING_DATE")) {
-            const [_, selectedService] = currentState.split("|");
+            const stateParts = currentState.split("|");
+            const selectedService = stateParts[1];
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
             if (dateRegex.test(userInput)) {
@@ -426,7 +427,26 @@ async function handleStateFlow(phone: string, userInput: string, name: string) {
 
             if (userInput === "btn_confirm") {
                 await saveNewAppointment(date, time, phone, service);
-                await sendWhatsappText(phone, `🎉 Booking Confirmed!\n\nThank you ${name}, your appointment for a ${service} on ${date} at ${time} has been registered in our system. See you at the salon!`);
+                const cleanService = service.charAt(0) + service.slice(1).toLowerCase();
+
+                // 2. Build a high-end, structured digital receipt message layout
+                const premiumSuccessMessage =
+                    `🎉 *APPOINTMENT SECURED!* 🎉\n\n` +
+                    `Thank you *${name}*! Your booking at *Batra's Salon Store* has been officially confirmed and registered in our system. 👑\n\n` +
+                    `┌──────────────────────────────┐\n` +
+                    `│      *RESERVATION RECEIPT*   \n` +
+                    `├──────────────────────────────┤\n` +
+                    `│ 💇‍♂️ *Service:* ${cleanService}\n` +
+                    `│ 📅 *Date:*    ${date}\n` +
+                    `│ 🕒 *Time:*    ${time} HRS\n` +
+                    `│ 📍 *Status:*  🟢 Confirmed\n` +
+                    `└──────────────────────────────┘\n\n` +
+                    `✨ *Important Information:* \n` +
+                    `• Please try to arrive *5-10 minutes* prior to your scheduled slot.\n` +
+                    `• If you need to reschedule or change your services, simply type *'Hi'* at any time to manage or restart your session.\n\n` +
+                    `_We look forward to giving you a brand new look! See you soon!_ 👋🏼`;
+
+                await sendWhatsappText(phone, premiumSuccessMessage);
                 await updateCustomerState(phone, "START");
             } else {
                 await sendServicesMenu(phone, name);
