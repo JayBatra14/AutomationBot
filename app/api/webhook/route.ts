@@ -249,9 +249,38 @@ async function sendAvailableSlotsMenu(to: string, targetDate: string, availableS
 
 async function sendConfirmationButtons(to: string, service: string, date: string, time: string) {
     // Dynamically match pricing for the review card display
-    let price = "150 INR";
-    if (service.toLowerCase() === "haircut") price = "300 INR";
-    if (service.toLowerCase() === "facial") price = "800 INR";
+    const serviceKey = service.trim().toLowerCase();
+
+    // Default fallback price if something unmatched slips through
+    let price = "Contact Store";
+
+    // DYNAMIC PRICE SELECTION MATRIX
+    switch (serviceKey) {
+        case "haircut":
+            price = "150 INR";
+            break;
+        case "hair_spa":
+            price = "250 INR";
+            break;
+        case "straightening":
+            price = "2,500 INR";
+            break;
+        case "oiling_massage":
+            price = "200 INR";
+            break;
+        case "body_spa":
+            price = "1,800 INR";
+            break;
+        case "bleaching":
+            price = "350 INR";
+            break;
+        case "facial":
+            price = "1,000 INR";
+            break;
+        case "waxing":
+            price = "600 INR";
+            break;
+    }
 
     await fetch(`https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/messages`, {
         method: "POST",
